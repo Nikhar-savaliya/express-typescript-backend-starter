@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
-import bcrypt from "bcrypt";
 import { sign } from "jsonwebtoken";
 
 import userModel from "../models/user";
 import { config } from "../config/config";
 import { User } from "../types/user";
+import { encryptPassword, verifyPassword } from "../utils/password";
 
 const createUser = async (req: Request, res: Response, next: NextFunction) => {
   const { name, email, password } = req.body;
@@ -30,7 +30,7 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
     return next(createHttpError(500, "error while getting user"));
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await encryptPassword(password);
   let newUser: User;
   try {
     // new user
@@ -40,11 +40,9 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
       password: hashedPassword,
     });
 
-    res
-      .status(201)
-      .json({
-        message: "user registered successfully please login to contiune",
-      });
+    res.status(201).json({
+      message: "user registered successfully please login to contiune",
+    });
   } catch (error) {
     return next(createHttpError(500, "error in creating user\n " + error));
   }
@@ -68,12 +66,12 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
 
   try {
     // comparing password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = verifyPassword(password, user.password);
     if (!isMatch) {
       return next(createHttpError(400, "email or password incorrect"));
     }
   } catch (error) {
-    return next(createHttpError(500, "failed to compare password"));
+    return next(createHttpError(500, "failed to compare password" + error));
   }
   try {
     // token generation JWT
